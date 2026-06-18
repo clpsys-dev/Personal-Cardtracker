@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1800" viewBox="0 0 1400 1800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <filter id="veins" x="-30%" y="-30%" width="160%" height="160%">
+      <feTurbulence type="turbulence" baseFrequency="0.009 0.021" numOctaves="6" seed="11" stitchTiles="stitch" result="t"/>
+      <feColorMatrix in="t" type="matrix"
+        values="0 0 0 0 0.16
+                0 0 0 0 0.18
+                0 0 0 0 0.17
+                0 0 0 -1.7 1.02"/>
+    </filter>
+    <filter id="veins2" x="-30%" y="-30%" width="160%" height="160%">
+      <feTurbulence type="turbulence" baseFrequency="0.018 0.04" numOctaves="4" seed="27" stitchTiles="stitch" result="t2"/>
+      <feColorMatrix in="t2" type="matrix"
+        values="0 0 0 0 0.30
+                0 0 0 0 0.32
+                0 0 0 0 0.31
+                0 0 0 -1.9 1.05"/>
+    </filter>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="3" result="g"/>
+      <feColorMatrix in="g" type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0.025 0"/>
+    </filter>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#f5f3ec"/>
+
+  <g transform="rotate(-19 700 900)">
+    <rect x="-500" y="-500" width="2400" height="2800" filter="url(#veins)" opacity="0.15"/>
+    <rect x="-500" y="-500" width="2400" height="2800" filter="url(#veins2)" opacity="0.08"/>
+  </g>
+
+  <rect width="100%" height="100%" filter="url(#grain)"/>
+</svg>
