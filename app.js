@@ -13,6 +13,7 @@
     search: "",
     filter: "all",   // all | stock | sold
     sort: { key: null, dir: 1 },
+    ovSort: { key: "soldValue", dir: -1 }, // overview leaderboard sort
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -163,18 +164,108 @@
   // ---------------------------------------------------------------------------
   function renderTabs() {
     els.tabs.innerHTML = "";
-    state.friends.forEach((f, i) => {
+    const makeTab = (label, idx) => {
       const b = document.createElement("button");
-      b.className = "tab" + (i === state.activeTab ? " active" : "");
-      b.textContent = `${f.name} (${f.metrics.total})`;
-      b.onclick = () => { state.activeTab = i; state.search = ""; state.filter = "all"; render(); };
+      b.className = "tab" + (idx === state.activeTab ? " active" : "");
+      b.textContent = label;
+      b.onclick = () => { state.activeTab = idx; state.search = ""; state.filter = "all"; render(); };
       els.tabs.appendChild(b);
+    };
+    // index 0 = grand-total overview; friends follow at 1..n
+    makeTab("📊 All Friends", 0);
+    state.friends.forEach((f, i) => makeTab(`${f.name} (${f.metrics.total})`, i + 1));
+  }
+
+  function renderOverview() {
+    const friends = state.friends;
+    const tot = friends.reduce((a, f) => {
+      a.inStock += f.metrics.inStock;
+      a.sold += f.metrics.sold;
+      a.soldValue += f.metrics.soldValue;
+      a.total += f.metrics.total;
+      return a;
+    }, { inStock: 0, sold: 0, soldValue: 0, total: 0 });
+
+    // per-friend rows, sorted for the leaderboard
+    const { key, dir } = state.ovSort;
+    const ranked = friends.map((f, i) => ({ i, name: f.name, ...f.metrics }))
+      .sort((a, b) => {
+        if (key === "name") return String(a.name).localeCompare(b.name) * dir;
+        return (a[key] - b[key]) * dir;
+      });
+
+    const cols = [
+      ["name", "Friend", ""],
+      ["inStock", "In Inventory", "num"],
+      ["sold", "Cards Sold", "num"],
+      ["total", "Total Products", "num"],
+      ["soldValue", "Sale Value", "num"],
+    ];
+    const arrow = (k) =>
+      key === k ? `<span class="arrow">${dir > 0 ? "▲" : "▼"}</span>` : "";
+
+    els.content.innerHTML = `
+      <section class="summary">
+        <div class="card accent">
+          <div class="label">Total In Inventory</div>
+          <div class="value">${fmtInt(tot.inStock)}</div>
+          <div class="sub">unsold cards across ${friends.length} friends</div>
+        </div>
+        <div class="card good">
+          <div class="label">Total Cards Sold</div>
+          <div class="value">${fmtInt(tot.sold)}</div>
+          <div class="sub">of ${fmtInt(tot.total)} total products</div>
+        </div>
+        <div class="card warn">
+          <div class="label">Combined Sale Value</div>
+          <div class="value">${fmtMoney(tot.soldValue)}</div>
+          <div class="sub">sum of every "Value Sold"</div>
+        </div>
+      </section>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            ${cols.map(([k, label, cls]) =>
+              `<th data-ov="${k}" class="${cls}">${label} ${arrow(k)}</th>`).join("")}
+          </tr></thead>
+          <tbody>
+            ${ranked.map((r) => `
+              <tr class="clickable" data-friend="${r.i + 1}">
+                <td><strong>${escapeHtml(r.name)}</strong></td>
+                <td class="num">${fmtInt(r.inStock)}</td>
+                <td class="num">${fmtInt(r.sold)}</td>
+                <td class="num">${fmtInt(r.total)}</td>
+                <td class="num">${fmtMoney(r.soldValue)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+      <p class="ov-hint">Tip: click a friend's row to open their full card list.</p>
+    `;
+
+    document.querySelectorAll("thead th[data-ov]").forEach((th) => {
+      th.onclick = () => {
+        const k = th.dataset.ov;
+        if (state.ovSort.key === k) state.ovSort.dir *= -1;
+        else state.ovSort = { key: k, dir: k === "name" ? 1 : -1 };
+        render();
+      };
+    });
+    document.querySelectorAll("tr.clickable").forEach((tr) => {
+      tr.onclick = () => {
+        state.activeTab = +tr.dataset.friend;
+        state.search = ""; state.filter = "all";
+        render();
+      };
     });
   }
 
   function render() {
     renderTabs();
-    const friend = state.friends[state.activeTab];
+    if (state.activeTab === 0) return renderOverview();
+
+    const friend = state.friends[state.activeTab - 1];
     if (!friend) { els.content.innerHTML = `<div class="empty">No data.</div>`; return; }
 
     const m = friend.metrics;
@@ -339,7 +430,7 @@
       <div class="loader"><div class="spinner"></div><p>Loading from Google Sheets…</p></div>`;
     try {
       state.friends = await fetchAll();
-      if (state.activeTab >= state.friends.length) state.activeTab = 0;
+      if (state.activeTab > state.friends.length) state.activeTab = 0;
       els.lastUpdated.textContent = CONFIG.USE_SAMPLE
         ? "⚠ Preview mode — sample data"
         : "Updated " + new Date().toLocaleTimeString(CONFIG.LOCALE);
