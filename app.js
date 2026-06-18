@@ -131,13 +131,14 @@
       if (values.length < 2) return {};
       const header = values[0].map(norm);
       const fi = header.indexOf("friend");
-      const ai = header.indexOf("amount");
+      let ai = header.indexOf("withdrawn");
+      if (ai === -1) ai = header.indexOf("amount");
       if (fi === -1 || ai === -1) return {};
       const totals = {};
       for (let i = 1; i < values.length; i++) {
         const name = norm(values[i][fi]);
-        if (!name) continue;
-        totals[name] = (totals[name] || 0) + parseMoney(values[i][ai]);
+        if (!name || values[i][ai] === undefined || values[i][ai] === "") continue;
+        totals[name] = parseMoney(values[i][ai]); // one value per friend (last wins)
       }
       return totals;
     } catch (_) {
@@ -468,7 +469,7 @@
 
     const disabled = webappReady() ? "" : "disabled";
     const setupNote = webappReady() ? "" :
-      `<p class="wd-note">Adding withdrawals is disabled until the Apps Script web app is set up
+      `<p class="wd-note">Saving is disabled until the Apps Script web app is set up
         (see <code>README.md</code> → "Withdrawals box").</p>`;
 
     return `
@@ -481,9 +482,9 @@
           <div><span class="label">Remaining</span><span class="value ${remaining < 0 ? "neg" : "pos"}">${fmtMoney(remaining)}</span></div>
         </div>
         <form class="wd-form" data-friend="${escapeHtml(name)}">
-          <input type="number" step="0.01" min="0.01" class="search wd-amount" placeholder="Amount" ${disabled} />
-          <input type="text" class="search wd-note" placeholder="Note (optional)" ${disabled} />
-          <button class="btn wd-add" type="submit" ${disabled}>Add withdrawal</button>
+          <span class="wd-label">Set amount withdrawn</span>
+          <input type="number" step="0.01" min="0" class="search wd-amount" value="${withdrawn ? withdrawn : ""}" placeholder="0.00" ${disabled} />
+          <button class="btn wd-add" type="submit" ${disabled}>Save</button>
         </form>
         <p class="wd-status" hidden></p>
         ${setupNote}
@@ -521,11 +522,10 @@
       form.onsubmit = async (e) => {
         e.preventDefault();
         const amountEl = form.querySelector(".wd-amount");
-        const noteEl = form.querySelector(".wd-note");
         const statusEl = form.parentElement.querySelector(".wd-status");
         const amount = parseFloat(amountEl.value);
-        if (!isFinite(amount) || amount <= 0) {
-          showWdStatus(statusEl, "Enter a positive amount.", true);
+        if (!isFinite(amount) || amount < 0) {
+          showWdStatus(statusEl, "Enter an amount of 0 or more.", true);
           return;
         }
         const btn = form.querySelector(".wd-add");
@@ -534,15 +534,15 @@
           const res = await fetch(withdrawCfg().WEBAPP_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ friend: name, amount, note: noteEl.value || "" }),
+            body: JSON.stringify({ friend: name, amount }),
           });
           const data = await res.json();
           if (!data.ok) throw new Error(data.error || "Save failed.");
           state.withdrawals[norm(name)] = data.total;
-          render(); // re-render box with new totals
+          render(); // re-render box with the saved amount
         } catch (err) {
           showWdStatus(statusEl, "Couldn't save: " + err.message, true);
-          btn.disabled = false; btn.textContent = "Add withdrawal";
+          btn.disabled = false; btn.textContent = "Save";
         }
       };
     }

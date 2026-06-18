@@ -47,8 +47,9 @@ understands both layouts in use:
 ## Withdrawals box
 Each friend's tab has a **💸 Money Withdrawn** box showing **Withdrawn** and
 **Remaining** (= their total sale value − withdrawn). It does not appear on the
-overview tab. Recording a withdrawal writes back to the sheet, which a read-only
-static site can't do alone — so it uses a small **Google Apps Script web app**
+overview tab. The withdrawn figure is a **single number you set** (overwrite) —
+not a log of requests. Saving it writes back to the sheet, which a read-only
+static site can't do alone, so it uses a small **Google Apps Script web app**
 (no API key).
 
 **One-time setup:**
@@ -58,9 +59,9 @@ static site can't do alone — so it uses a small **Google Apps Script web app**
    **Anyone** → **Deploy** → authorize → **copy the `/exec` URL**.
 4. Paste that URL into `config.js → WITHDRAWALS.WEBAPP_URL`, commit, and push.
 
-The script creates a `Withdrawals` tab (Timestamp, Friend, Amount, Note) on the
-first save and totals each person's amounts. Until the URL is set, the box still
-shows totals but the "Add withdrawal" form is disabled.
+The script creates a `Withdrawals` tab (Friend, Withdrawn, Updated) and keeps one
+row per friend, overwriting that friend's number each time you save. Until the URL
+is set, the box still shows the figures but the Save form is disabled.
 
 **Passwords (light gate):** set a password per friend in
 `config.js → WITHDRAWALS.PASSWORDS`. That friend's box then hides behind a prompt
