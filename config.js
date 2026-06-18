@@ -14,32 +14,41 @@
 const CONFIG = {
   // ---- Preview mode -------------------------------------------------------
   // true  = show built-in fake data so you can see the UI with no setup.
-  // false = read your real Google Sheet (set this once you've added your key).
-  USE_SAMPLE: true,
+  // false = read the real Google Sheet (no API key needed; sheet must be
+  //         shared as "Anyone with the link can view").
+  USE_SAMPLE: false,
 
-  // ---- Required (when USE_SAMPLE is false) --------------------------------
-  SPREADSHEET_ID: "PASTE_YOUR_SPREADSHEET_ID_HERE",
-  API_KEY: "PASTE_YOUR_API_KEY_HERE",
+  // ---- The sheet ----------------------------------------------------------
+  SPREADSHEET_ID: "1s3VJIHGDOZSrwL0tDzmH0SsuDn4Z7LwahijQIttEWyA",
 
-  // ---- Optional: which tabs to show --------------------------------------
-  // Leave both empty to show every tab as a friend.
-  // To show only specific tabs, list their exact names in INCLUDE_TABS.
-  // To hide helper tabs (e.g. a totals/summary sheet), list them in HIDE_TABS.
-  INCLUDE_TABS: [],                 // e.g. ["Alex", "Sam", "Jordan"]
-  HIDE_TABS: ["Summary", "Totals"], // tab names to never show as a friend
+  // ---- Friends (one tab each) --------------------------------------------
+  // name = the label shown on the tab; gid = the tab's id from its URL
+  // (…/edit#gid=THIS_NUMBER). To add a friend later: open their tab in the
+  // sheet, copy the gid from the URL, and add a line here.
+  FRIENDS: [
+    { name: "CLP",        gid: "1761858357" },
+    { name: "Chaos",      gid: "0" },
+    { name: "Ishmel",     gid: "696229348" },
+    { name: "Mczbi",      gid: "1448113652" },
+    { name: "Beau",       gid: "2082684462" },
+    { name: "Slaycir",    gid: "795749473" },
+    { name: "Midknight",  gid: "1642462824" },
+    { name: "PlaidStorm", gid: "366805686" },
+  ],
 
   // ---- Column mapping -----------------------------------------------------
   // The app matches your header row by these names (case-insensitive,
   // punctuation/spaces ignored). Add aliases if your headers differ.
   COLUMNS: {
     productName:   ["Product Name", "Product", "Card", "Card Name", "Name"],
+    game:          ["Game", "TCG", "Category"],
     set:           ["Set", "Set Name"],
-    cardNumber:    ["Card Number", "Card #", "Number", "No", "No."],
+    cardNumber:    ["Product Number", "Card Number", "Card #", "Number", "No", "No."],
     setCode:       ["Set Code", "Code"],
     inventoryDate: ["Inventory Date", "Date In", "Acquired", "Date Added"],
     valueSold:     ["Value Sold", "Sold Value", "Sale Price", "Sold Price", "Sold For", "Price"],
-    dateSold:      ["Date Sold", "Sold Date", "Sale Date"],
-    txnComplete:   ["Transaction Complete Date", "Transaction Complete", "Completed", "Complete Date"],
+    dateSold:      ["Sold Date", "Date Sold", "Sale Date"],
+    txnComplete:   ["Transcation Complete", "Transaction Complete Date", "Transaction Complete", "Completed", "Complete Date"],
   },
 
   // A row counts as SOLD if this field has a value. Choose "dateSold" or
@@ -52,25 +61,25 @@ const CONFIG = {
 
   // ---- Sample data (used only when USE_SAMPLE is true) --------------------
   // Each key is a friend (tab); rows mirror the real column order:
-  // [Product Name, Set, Card Number, Set Code, Inventory Date, Value Sold, Date Sold, Transaction Complete Date]
+  // [Product Name, Game, Set, Product Number, Inventory Date, Value Sold, Sold Date, Transcation Complete]
   SAMPLE: {
     Alex: [
-      ["Charizard ex", "Obsidian Flames", "125", "OBF", "2025-01-12", "", "", ""],
-      ["Pikachu VMAX", "Vivid Voltage", "044", "VIV", "2025-02-03", "180.00", "2025-05-20", "2025-05-22"],
-      ["Booster Box", "Surging Sparks", "—", "SSP", "2025-03-01", "", "", ""],
-      ["Mew ex", "151", "151", "MEW", "2025-03-18", "42.50", "2025-06-01", "2025-06-03"],
-      ["Iono", "Paldea Evolved", "185", "PAL", "2025-04-02", "", "", ""],
+      ["Charizard ex", "Pokemon", "Obsidian Flames", "125", "2025-01-12", "", "", ""],
+      ["Pikachu VMAX", "Pokemon", "Vivid Voltage", "044", "2025-02-03", "180.00", "2025-05-20", "2025-05-22"],
+      ["Booster Box", "Pokemon", "Surging Sparks", "—", "2025-03-01", "", "", ""],
+      ["Mew ex", "Pokemon", "151", "151", "2025-03-18", "42.50", "2025-06-01", "2025-06-03"],
+      ["Iono", "Pokemon", "Paldea Evolved", "185", "2025-04-02", "", "", ""],
     ],
     Sam: [
-      ["Black Lotus (Proxy)", "Alpha", "—", "LEA", "2025-01-05", "", "", ""],
-      ["Lightning Bolt", "Modern Horizons 2", "121", "MH2", "2025-02-10", "3.25", "2025-04-15", "2025-04-16"],
-      ["Booster Pack", "Bloomburrow", "—", "BLB", "2025-03-22", "5.00", "2025-05-30", "2025-06-02"],
-      ["Sheoldred", "Dominaria United", "107", "DMU", "2025-04-11", "", "", ""],
+      ["Black Lotus", "Magic", "Alpha", "—", "2025-01-05", "", "", ""],
+      ["Lightning Bolt", "Magic", "Modern Horizons 2", "121", "2025-02-10", "3.25", "2025-04-15", "2025-04-16"],
+      ["Booster Pack", "Magic", "Bloomburrow", "—", "2025-03-22", "5.00", "2025-05-30", "2025-06-02"],
+      ["Sheoldred", "Magic", "Dominaria United", "107", "2025-04-11", "", "", ""],
     ],
     Jordan: [
-      ["Blue-Eyes White Dragon", "LOB", "001", "LOB", "2025-01-20", "120.00", "2025-03-12", "2025-03-15"],
-      ["Dark Magician", "LOB", "005", "LOB", "2025-02-14", "", "", ""],
-      ["Booster Box", "25th Anniversary", "—", "RA02", "2025-03-30", "", "", ""],
+      ["Blue-Eyes White Dragon", "Yu-Gi-Oh", "LOB", "001", "2025-01-20", "120.00", "2025-03-12", "2025-03-15"],
+      ["Dark Magician", "Yu-Gi-Oh", "LOB", "005", "2025-02-14", "", "", ""],
+      ["Zephyrmon", "Digimon", "BT7", "BT7-036", "2025-03-30", "", "", ""],
     ],
   },
 };

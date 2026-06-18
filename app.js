@@ -49,8 +49,8 @@
     if (CONFIG.USE_SAMPLE) {
       return Object.entries(CONFIG.SAMPLE || {}).map(([name, dataRows]) => {
         const header = [
-          "Product Name", "Set", "Card Number", "Set Code",
-          "Inventory Date", "Value Sold", "Date Sold", "Transaction Complete Date",
+          "Product Name", "Game", "Set", "Product Number",
+          "Inventory Date", "Value Sold", "Sold Date", "Transcation Complete",
         ];
         const rows = parseSheet([header, ...dataRows]);
         return { name, rows, metrics: computeMetrics(rows) };
@@ -58,50 +58,50 @@
     }
 
     const id = CONFIG.SPREADSHEET_ID;
-    const key = CONFIG.API_KEY;
-    if (!id || id.includes("PASTE_") || !key || key.includes("PASTE_")) {
+    const friends = CONFIG.FRIENDS || [];
+    if (!id || id.includes("PASTE_") || !friends.length) {
       throw new ConfigError();
     }
 
-    // 1) Get the list of tab names.
-    const metaUrl =
-      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}` +
-      `?fields=sheets.properties.title&key=${encodeURIComponent(key)}`;
-    const meta = await getJSON(metaUrl);
-
-    let titles = (meta.sheets || []).map((s) => s.properties.title);
-    if (CONFIG.INCLUDE_TABS && CONFIG.INCLUDE_TABS.length) {
-      const inc = CONFIG.INCLUDE_TABS.map(norm);
-      titles = titles.filter((t) => inc.includes(norm(t)));
-    }
-    if (CONFIG.HIDE_TABS && CONFIG.HIDE_TABS.length) {
-      const hide = CONFIG.HIDE_TABS.map(norm);
-      titles = titles.filter((t) => !hide.includes(norm(t)));
-    }
-    if (!titles.length) throw new Error("No matching tabs found in the spreadsheet.");
-
-    // 2) Batch-read the values of every tab in one request.
-    const ranges = titles.map((t) => `ranges=${encodeURIComponent(t)}`).join("&");
-    const valUrl =
-      `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(id)}` +
-      `/values:batchGet?${ranges}&majorDimension=ROWS&key=${encodeURIComponent(key)}`;
-    const data = await getJSON(valUrl);
-
-    return titles.map((name, i) => {
-      const values = (data.valueRanges && data.valueRanges[i] && data.valueRanges[i].values) || [];
+    // Read each friend's tab as CSV via the public gviz endpoint (no API key).
+    // Runs in parallel; a failed tab shows an error row rather than killing all.
+    const results = await Promise.all(friends.map(async (f) => {
+      const url =
+        `https://docs.google.com/spreadsheets/d/${encodeURIComponent(id)}` +
+        `/gviz/tq?tqx=out:csv&gid=${encodeURIComponent(f.gid)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Couldn't load tab "${f.name}" (HTTP ${res.status}).`);
+      const text = await res.text();
+      const values = parseCSV(text);
       const rows = parseSheet(values);
-      return { name, rows, metrics: computeMetrics(rows) };
-    });
+      return { name: f.name, rows, metrics: computeMetrics(rows) };
+    }));
+    return results;
   }
 
-  async function getJSON(url) {
-    const res = await fetch(url);
-    if (!res.ok) {
-      let detail = "";
-      try { detail = (await res.json()).error?.message || ""; } catch (_) {}
-      throw new Error(`Google Sheets API ${res.status}: ${detail || res.statusText}`);
+  // Minimal RFC-4180 CSV parser: handles quoted fields, embedded commas,
+  // newlines, and "" escaped quotes. Returns a 2D array of strings.
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = "", inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else inQuotes = false;
+        } else field += c;
+      } else if (c === '"') {
+        inQuotes = true;
+      } else if (c === ",") {
+        row.push(field); field = "";
+      } else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        row.push(field); rows.push(row); row = []; field = "";
+      } else field += c;
     }
-    return res.json();
+    if (field !== "" || row.length) { row.push(field); rows.push(row); }
+    return rows;
   }
 
   function ConfigError() {
@@ -136,9 +136,10 @@
         const sold = soldRaw !== "";
         return {
           productName:   get("productName"),
+          game:          get("game"),
+          setCode:       get("setCode"),
           set:           get("set"),
           cardNumber:    get("cardNumber"),
-          setCode:       get("setCode"),
           inventoryDate: get("inventoryDate"),
           valueSold,
           dateSold:      get("dateSold"),
@@ -187,7 +188,7 @@
     const q = norm(state.search);
     if (q) {
       rows = rows.filter((r) =>
-        norm([r.productName, r.set, r.cardNumber, r.setCode].join(" ")).includes(q)
+        norm([r.productName, r.game, r.setCode, r.set, r.cardNumber].join(" ")).includes(q)
       );
     }
 
@@ -197,15 +198,16 @@
       rows.sort((a, b) => {
         let av = a[k], bv = b[k];
         if (k === "valueSold") { av = +av; bv = +bv; return (av - bv) * dir; }
+        if (k === "gameCode") { av = a.game || a.setCode; bv = b.game || b.setCode; }
         return String(av).localeCompare(String(bv), undefined, { numeric: true }) * dir;
       });
     }
 
     const cols = [
       ["productName", "Product"],
+      ["gameCode", "Game / Code"],
       ["set", "Set"],
-      ["cardNumber", "Card #"],
-      ["setCode", "Code"],
+      ["cardNumber", "Number"],
       ["inventoryDate", "Inventory Date"],
       ["status", "Status"],
       ["valueSold", "Value Sold"],
@@ -281,9 +283,9 @@
       : `<span class="badge stock">In Stock</span>`;
     return `<tr>
       <td>${escapeHtml(r.productName)}</td>
+      <td>${escapeHtml(r.game || r.setCode)}</td>
       <td>${escapeHtml(r.set)}</td>
       <td>${escapeHtml(r.cardNumber)}</td>
-      <td>${escapeHtml(r.setCode)}</td>
       <td>${escapeHtml(r.inventoryDate)}</td>
       <td>${status}</td>
       <td class="num">${r.sold ? fmtMoney(r.valueSold) : "—"}</td>
@@ -309,7 +311,7 @@
           <p>Open <code>config.js</code> and fill in:</p>
           <ol>
             <li><code>SPREADSHEET_ID</code> — the long id from your sheet's URL.</li>
-            <li><code>API_KEY</code> — a Google Cloud key with the Sheets API enabled.</li>
+            <li><code>FRIENDS</code> — one <code>{ name, gid }</code> entry per tab.</li>
           </ol>
           <p>Also make sure the sheet is shared as <strong>"Anyone with the link can view."</strong>
              See <code>README.md</code> for step-by-step setup.</p>
@@ -322,7 +324,7 @@
           <ol>
             <li>Is the sheet shared as <strong>"Anyone with the link can view"</strong>?</li>
             <li>Is the <code>SPREADSHEET_ID</code> correct?</li>
-            <li>Is the API key restricted to this site's domain and the Sheets API enabled?</li>
+            <li>Are the <code>gid</code> numbers in <code>FRIENDS</code> correct?</li>
           </ol>
         </div>`;
     }
