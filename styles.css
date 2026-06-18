@@ -219,9 +219,12 @@ tr.clickable:hover { background: var(--paper-2); }
 .withdraw-figs .value { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; }
 .withdraw-figs .value.pos { color: var(--good); }
 .withdraw-figs .value.neg { color: var(--danger); }
-.wd-form, .unlock-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.wd-form .wd-label { font-size: .82rem; color: var(--ink-soft); }
+.wd-form, .unlock-form, .admin-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.admin-form { margin-top: 10px; }
+.wd-form .wd-label, .admin-form .wd-label { font-size: .82rem; color: var(--ink-soft); }
 .wd-form .wd-amount { flex: 0 0 150px; min-width: 120px; }
+.admin-form .wd-adminpass { flex: 1; min-width: 180px; }
+.wd-adminerr { font-size: .82rem; color: var(--danger); margin: 8px 0 0; }
 .unlock-form .wd-pass { flex: 1; min-width: 200px; }
 .wd-status { font-size: .82rem; margin: 10px 0 0; color: var(--good); }
 .wd-status.err { color: var(--danger); }

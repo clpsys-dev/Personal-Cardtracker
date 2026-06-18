@@ -16,6 +16,7 @@
     ovSort: { key: "soldValue", dir: -1 }, // overview leaderboard sort
     withdrawals: {}, // { friendName(normalised): totalWithdrawn }
     unlocked: new Set(JSON.parse(sessionStorage.getItem("tcg_unlocked") || "[]")),
+    adminUnlocked: sessionStorage.getItem("tcg_admin") === "1",
     animate: true,        // run count-up only on tab switch / fresh load
     salesBaseline: null,  // last-seen { name: {sold, soldValue} } for new-sale alerts
   };
@@ -444,6 +445,14 @@
     const pw = (withdrawCfg().PASSWORDS || {})[name];
     return pw == null ? "" : String(pw);
   }
+  function adminPw() {
+    const pw = withdrawCfg().ADMIN_PASSWORD;
+    return pw == null ? "" : String(pw);
+  }
+  function isAdmin() { return !!adminPw() && state.adminUnlocked; }
+  // Editing is allowed when the admin is authenticated, or when no admin
+  // password is configured at all.
+  function canEdit() { return webappReady() && (isAdmin() || !adminPw()); }
   function withdrawnFor(name) {
     return state.withdrawals[norm(name)] || 0;
   }
@@ -453,9 +462,12 @@
     const earned = friend.metrics.soldValue;
     const withdrawn = withdrawnFor(name);
     const remaining = earned - withdrawn;
-    const locked = passwordFor(name) && !state.unlocked.has(name);
 
-    if (locked) {
+    // Viewing: the admin sees everything; otherwise the friend's own password
+    // (if set) must be entered.
+    const viewVisible = isAdmin() || !passwordFor(name) || state.unlocked.has(name);
+
+    if (!viewVisible) {
       return `
         <section class="withdraw locked" data-friend="${escapeHtml(name)}">
           <div class="withdraw-head"><span>🔒 Money Withdrawn</span></div>
@@ -464,35 +476,78 @@
             <button class="btn" type="submit">Unlock</button>
           </form>
           <p class="wd-err" hidden>Incorrect password.</p>
+          <form class="admin-form"><span class="wd-label">Owner?</span>
+            <input type="password" class="search wd-adminpass" placeholder="Admin password" />
+            <button class="btn" type="submit">Unlock all</button>
+          </form>
+          <p class="wd-adminerr" hidden>Incorrect admin password.</p>
         </section>`;
     }
 
-    const disabled = webappReady() ? "" : "disabled";
-    const setupNote = webappReady() ? "" :
-      `<p class="wd-note">Saving is disabled until the Apps Script web app is set up
+    // Editing region depends on admin auth.
+    let editRegion;
+    if (!webappReady()) {
+      editRegion = `<p class="wd-note">Saving is disabled until the Apps Script web app is set up
         (see <code>README.md</code> → "Withdrawals box").</p>`;
+    } else if (canEdit()) {
+      editRegion = `
+        <form class="wd-form" data-friend="${escapeHtml(name)}">
+          <span class="wd-label">Set amount withdrawn</span>
+          <input type="number" step="0.01" min="0" class="search wd-amount" value="${withdrawn ? withdrawn : ""}" placeholder="0.00" />
+          <button class="btn wd-add" type="submit">Save</button>
+        </form>
+        <p class="wd-status" hidden></p>`;
+    } else {
+      editRegion = `
+        <form class="admin-form"><span class="wd-label">Amount is view-only.</span>
+          <input type="password" class="search wd-adminpass" placeholder="Admin password to edit" />
+          <button class="btn" type="submit">Unlock editing</button>
+        </form>
+        <p class="wd-adminerr" hidden>Incorrect admin password.</p>`;
+    }
+
+    const headRight = isAdmin()
+      ? `<button class="link-btn wd-adminlock">admin ✓ — lock</button>`
+      : (passwordFor(name) && state.unlocked.has(name)
+          ? `<button class="link-btn wd-lock" data-friend="${escapeHtml(name)}">lock</button>` : "");
 
     return `
       <section class="withdraw" data-friend="${escapeHtml(name)}">
-        <div class="withdraw-head"><span>💸 Money Withdrawn</span>${
-          passwordFor(name) ? `<button class="link-btn wd-lock" data-friend="${escapeHtml(name)}">lock</button>` : ""
-        }</div>
+        <div class="withdraw-head"><span>💸 Money Withdrawn</span>${headRight}</div>
         <div class="withdraw-figs">
           <div><span class="label">Withdrawn</span><span class="value">${fmtMoney(withdrawn)}</span></div>
           <div><span class="label">Remaining</span><span class="value ${remaining < 0 ? "neg" : "pos"}">${fmtMoney(remaining)}</span></div>
         </div>
-        <form class="wd-form" data-friend="${escapeHtml(name)}">
-          <span class="wd-label">Set amount withdrawn</span>
-          <input type="number" step="0.01" min="0" class="search wd-amount" value="${withdrawn ? withdrawn : ""}" placeholder="0.00" ${disabled} />
-          <button class="btn wd-add" type="submit" ${disabled}>Save</button>
-        </form>
-        <p class="wd-status" hidden></p>
-        ${setupNote}
+        ${editRegion}
       </section>`;
+  }
+
+  function unlockAdmin() {
+    state.adminUnlocked = true;
+    sessionStorage.setItem("tcg_admin", "1");
+    render();
   }
 
   function wireWithdrawBox(friend) {
     const name = friend.name;
+
+    // Admin unlock (present in both the locked and view-only states).
+    const adminForm = document.querySelector(".admin-form");
+    if (adminForm) {
+      adminForm.onsubmit = (e) => {
+        e.preventDefault();
+        const val = adminForm.querySelector(".wd-adminpass").value;
+        if (adminPw() && val === adminPw()) unlockAdmin();
+        else adminForm.parentElement.querySelector(".wd-adminerr").hidden = false;
+      };
+    }
+
+    const adminLock = document.querySelector(".wd-adminlock");
+    if (adminLock) adminLock.onclick = () => {
+      state.adminUnlocked = false;
+      sessionStorage.removeItem("tcg_admin");
+      render();
+    };
 
     const unlockForm = document.querySelector(".unlock-form");
     if (unlockForm) {

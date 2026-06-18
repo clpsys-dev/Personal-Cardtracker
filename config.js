@@ -46,10 +46,14 @@ const CONFIG = {
     // The tab the Apps Script logs withdrawals to (it creates this for you).
     SHEET_NAME: "Withdrawals",
 
+    // ONE admin password that lets you (the owner) reveal AND edit every
+    // friend's withdrawn amount. Leave "" to allow editing with no gate.
+    ADMIN_PASSWORD: "",
+
     // Light per-person password gate (NOT real security — anyone determined
     // can bypass client-side checks, and the sheet itself is public).
-    // Set a password per friend to hide their box behind a prompt. Leave a
-    // name out (or set "") to show that friend's box with no gate.
+    // Each friend's password reveals THEIR box (read-only). Editing still
+    // needs the admin password above. Leave a name "" to show with no gate.
     PASSWORDS: {
       CLP:        "",
       Chaos:      "",

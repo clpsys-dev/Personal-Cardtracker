@@ -63,11 +63,15 @@ The script creates a `Withdrawals` tab (Friend, Withdrawn, Updated) and keeps on
 row per friend, overwriting that friend's number each time you save. Until the URL
 is set, the box still shows the figures but the Save form is disabled.
 
-**Passwords (light gate):** set a password per friend in
-`config.js → WITHDRAWALS.PASSWORDS`. That friend's box then hides behind a prompt
-until the password is entered (remembered for the browser session; a "lock" link
-re-hides it). ⚠️ This is a deterrent, not real security — it's a client-side
-check and the underlying sheet is public. Leave a password blank for no gate.
+**Passwords (two tiers, light gate):**
+- `WITHDRAWALS.PASSWORDS` — a password per friend that **reveals their box
+  (read-only)**. Each friend can see their own; leave blank for no view gate.
+- `WITHDRAWALS.ADMIN_PASSWORD` — one owner password that **reveals AND lets you
+  edit every** friend's amount, without needing their individual passwords.
+
+Both are remembered for the browser session (admin has an "admin ✓ — lock" link
+to sign out). ⚠️ Light deterrent only, not real security — it's a client-side
+check and the underlying sheet is public.
 
 ## Run locally
 The app uses `fetch`, so serve it over http (not `file://`):
