@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TCG Inventory &amp; Value Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🃏</span>
+      <div>
+        <h1>TCG Inventory &amp; Value Tracker</h1>
+        <p class="subtitle">Live from Google Sheets</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="last-updated" class="last-updated"></span>
+      <button id="refresh-btn" class="btn" title="Reload from the spreadsheet">↻ Refresh</button>
+    </div>
+  </header>
+
+  <nav id="tabs" class="tabs" aria-label="Friends"></nav>
+
+  <main id="content" class="content">
+    <div id="loader" class="loader">
+      <div class="spinner"></div>
+      <p>Loading from Google Sheets…</p>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <span>Built as a static site • data is read-only from the published sheet</span>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

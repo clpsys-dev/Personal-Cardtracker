@@ -1,0 +1,8 @@
+# OS / editor cruft
+Thumbs.db
+.DS_Store
+*.swp
+.vscode/
+
+# Claude Code local preview config (not needed for GitHub Pages)
+.claude/
