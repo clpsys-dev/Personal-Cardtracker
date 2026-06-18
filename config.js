@@ -1,14 +1,14 @@
 /* =============================================================================
  *  CONFIGURATION  —  edit this file, then refresh the page.
  * =============================================================================
- *  1. SPREADSHEET_ID  : the long id in your Google Sheet URL, e.g.
- *       https://docs.google.com/spreadsheets/d/THIS_PART_HERE/edit
- *  2. API_KEY         : a Google Cloud API key restricted to the
- *                       "Google Sheets API" and to your site's referrer.
- *                       See README.md → "Getting your API key".
+ *  SPREADSHEET_ID : the long id in your Google Sheet URL, e.g.
+ *      https://docs.google.com/spreadsheets/d/THIS_PART_HERE/edit
+ *  FRIENDS        : one { name, gid } per tab (gid = number after #gid= in the
+ *                   tab's URL).
+ *  WITHDRAWALS    : optional per-person "money withdrawn" box (see README →
+ *                   "Withdrawals box"). Needs a Google Apps Script web app URL.
  *
- *  Remember: the sheet must be shared as "Anyone with the link can VIEW"
- *  for an API key to read it.
+ *  The sheet must be shared as "Anyone with the link can VIEW".
  * ===========================================================================*/
 
 const CONFIG = {
@@ -35,6 +35,32 @@ const CONFIG = {
     { name: "Midknight",  gid: "1642462824" },
     { name: "PlaidStorm", gid: "366805686" },
   ],
+
+  // ---- Money-withdrawn box (per person) ----------------------------------
+  WITHDRAWALS: {
+    // Paste the Apps Script web-app URL (ends in /exec) here after deploying
+    // it (see README → "Withdrawals box"). Until then, the box shows totals
+    // read from the sheet but the "Add withdrawal" form stays disabled.
+    WEBAPP_URL: "PASTE_YOUR_APPS_SCRIPT_WEBAPP_URL",
+
+    // The tab the Apps Script logs withdrawals to (it creates this for you).
+    SHEET_NAME: "Withdrawals",
+
+    // Light per-person password gate (NOT real security — anyone determined
+    // can bypass client-side checks, and the sheet itself is public).
+    // Set a password per friend to hide their box behind a prompt. Leave a
+    // name out (or set "") to show that friend's box with no gate.
+    PASSWORDS: {
+      CLP:        "",
+      Chaos:      "",
+      Ishmel:     "",
+      Mczbi:      "",
+      Beau:       "",
+      Slaycir:    "",
+      Midknight:  "",
+      PlaidStorm: "",
+    },
+  },
 
   // ---- Column mapping -----------------------------------------------------
   // The app matches your header row by these names (case-insensitive,

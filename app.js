@@ -14,6 +14,8 @@
     filter: "all",   // all | stock | sold
     sort: { key: null, dir: 1 },
     ovSort: { key: "soldValue", dir: -1 }, // overview leaderboard sort
+    withdrawals: {}, // { friendName(normalised): totalWithdrawn }
+    unlocked: new Set(JSON.parse(sessionStorage.getItem("tcg_unlocked") || "[]")),
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -109,6 +111,36 @@
     const e = new Error("Not configured");
     e.isConfig = true;
     return e;
+  }
+
+  // Read the "Withdrawals" tab (Timestamp, Friend, Amount, Note) via the public
+  // CSV endpoint and total the Amount per friend. Returns {} if the tab/sheet
+  // isn't set up yet — withdrawals are simply treated as zero in that case.
+  async function fetchWithdrawals() {
+    const cfg = CONFIG.WITHDRAWALS;
+    if (CONFIG.USE_SAMPLE || !cfg || !cfg.SHEET_NAME) return {};
+    try {
+      const url =
+        `https://docs.google.com/spreadsheets/d/${encodeURIComponent(CONFIG.SPREADSHEET_ID)}` +
+        `/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(cfg.SHEET_NAME)}`;
+      const res = await fetch(url);
+      if (!res.ok) return {};
+      const values = parseCSV(await res.text());
+      if (values.length < 2) return {};
+      const header = values[0].map(norm);
+      const fi = header.indexOf("friend");
+      const ai = header.indexOf("amount");
+      if (fi === -1 || ai === -1) return {};
+      const totals = {};
+      for (let i = 1; i < values.length; i++) {
+        const name = norm(values[i][fi]);
+        if (!name) continue;
+        totals[name] = (totals[name] || 0) + parseMoney(values[i][ai]);
+      }
+      return totals;
+    } catch (_) {
+      return {};
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -327,6 +359,8 @@
         </div>
       </section>
 
+      ${withdrawBoxHtml(friend)}
+
       <div class="toolbar">
         <input class="search" id="search" type="text" placeholder="Search product, set, card #…" value="${escapeHtml(state.search)}" />
         <div class="filter-group">
@@ -366,6 +400,130 @@
         render();
       };
     });
+    wireWithdrawBox(friend);
+  }
+
+  // ---------------------------------------------------------------------------
+  //  Money-withdrawn box (per friend)
+  // ---------------------------------------------------------------------------
+  function withdrawCfg() { return CONFIG.WITHDRAWALS || {}; }
+  function webappReady() {
+    const u = withdrawCfg().WEBAPP_URL || "";
+    return u && !u.includes("PASTE_");
+  }
+  function passwordFor(name) {
+    const pw = (withdrawCfg().PASSWORDS || {})[name];
+    return pw == null ? "" : String(pw);
+  }
+  function withdrawnFor(name) {
+    return state.withdrawals[norm(name)] || 0;
+  }
+
+  function withdrawBoxHtml(friend) {
+    const name = friend.name;
+    const earned = friend.metrics.soldValue;
+    const withdrawn = withdrawnFor(name);
+    const remaining = earned - withdrawn;
+    const locked = passwordFor(name) && !state.unlocked.has(name);
+
+    if (locked) {
+      return `
+        <section class="withdraw locked" data-friend="${escapeHtml(name)}">
+          <div class="withdraw-head"><span>🔒 Money Withdrawn</span></div>
+          <form class="unlock-form" data-friend="${escapeHtml(name)}">
+            <input type="password" class="search wd-pass" placeholder="Enter ${escapeHtml(name)}'s password" />
+            <button class="btn" type="submit">Unlock</button>
+          </form>
+          <p class="wd-err" hidden>Incorrect password.</p>
+        </section>`;
+    }
+
+    const disabled = webappReady() ? "" : "disabled";
+    const setupNote = webappReady() ? "" :
+      `<p class="wd-note">Adding withdrawals is disabled until the Apps Script web app is set up
+        (see <code>README.md</code> → "Withdrawals box").</p>`;
+
+    return `
+      <section class="withdraw" data-friend="${escapeHtml(name)}">
+        <div class="withdraw-head"><span>💸 Money Withdrawn</span>${
+          passwordFor(name) ? `<button class="link-btn wd-lock" data-friend="${escapeHtml(name)}">lock</button>` : ""
+        }</div>
+        <div class="withdraw-figs">
+          <div><span class="label">Withdrawn</span><span class="value">${fmtMoney(withdrawn)}</span></div>
+          <div><span class="label">Remaining</span><span class="value ${remaining < 0 ? "neg" : "pos"}">${fmtMoney(remaining)}</span></div>
+        </div>
+        <form class="wd-form" data-friend="${escapeHtml(name)}">
+          <input type="number" step="0.01" min="0.01" class="search wd-amount" placeholder="Amount" ${disabled} />
+          <input type="text" class="search wd-note" placeholder="Note (optional)" ${disabled} />
+          <button class="btn wd-add" type="submit" ${disabled}>Add withdrawal</button>
+        </form>
+        <p class="wd-status" hidden></p>
+        ${setupNote}
+      </section>`;
+  }
+
+  function wireWithdrawBox(friend) {
+    const name = friend.name;
+
+    const unlockForm = document.querySelector(".unlock-form");
+    if (unlockForm) {
+      unlockForm.onsubmit = (e) => {
+        e.preventDefault();
+        const val = unlockForm.querySelector(".wd-pass").value;
+        if (val === passwordFor(name)) {
+          state.unlocked.add(name);
+          sessionStorage.setItem("tcg_unlocked", JSON.stringify([...state.unlocked]));
+          render();
+        } else {
+          unlockForm.parentElement.querySelector(".wd-err").hidden = false;
+        }
+      };
+      return;
+    }
+
+    const lockBtn = document.querySelector(".wd-lock");
+    if (lockBtn) lockBtn.onclick = () => {
+      state.unlocked.delete(name);
+      sessionStorage.setItem("tcg_unlocked", JSON.stringify([...state.unlocked]));
+      render();
+    };
+
+    const form = document.querySelector(".wd-form");
+    if (form && webappReady()) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const amountEl = form.querySelector(".wd-amount");
+        const noteEl = form.querySelector(".wd-note");
+        const statusEl = form.parentElement.querySelector(".wd-status");
+        const amount = parseFloat(amountEl.value);
+        if (!isFinite(amount) || amount <= 0) {
+          showWdStatus(statusEl, "Enter a positive amount.", true);
+          return;
+        }
+        const btn = form.querySelector(".wd-add");
+        btn.disabled = true; btn.textContent = "Saving…";
+        try {
+          const res = await fetch(withdrawCfg().WEBAPP_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ friend: name, amount, note: noteEl.value || "" }),
+          });
+          const data = await res.json();
+          if (!data.ok) throw new Error(data.error || "Save failed.");
+          state.withdrawals[norm(name)] = data.total;
+          render(); // re-render box with new totals
+        } catch (err) {
+          showWdStatus(statusEl, "Couldn't save: " + err.message, true);
+          btn.disabled = false; btn.textContent = "Add withdrawal";
+        }
+      };
+    }
+  }
+
+  function showWdStatus(el, msg, isErr) {
+    el.textContent = msg;
+    el.hidden = false;
+    el.className = "wd-status" + (isErr ? " err" : "");
   }
 
   function rowHtml(r) {
@@ -430,6 +588,7 @@
       <div class="loader"><div class="spinner"></div><p>Loading from Google Sheets…</p></div>`;
     try {
       state.friends = await fetchAll();
+      state.withdrawals = await fetchWithdrawals();
       if (state.activeTab > state.friends.length) state.activeTab = 0;
       els.lastUpdated.textContent = CONFIG.USE_SAMPLE
         ? "⚠ Preview mode — sample data"
