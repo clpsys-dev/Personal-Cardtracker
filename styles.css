@@ -1,18 +1,18 @@
 :root {
-  --paper:    #fffdf7;   /* cards / panels            */
-  --paper-2:  #f7f5ee;   /* inset tiles               */
-  --ink:      #2c2c2a;   /* primary text              */
-  --ink-soft: #76746c;   /* muted text                */
-  --line:     #e4e2da;   /* hairline border           */
-  --line-2:   #d6d3c8;   /* stronger border / hover   */
-  --accent:   #0f6e56;   /* muted marble-green        */
-  --accent-2: #0b5544;
-  --accent-soft: #e6efe9;
-  --good:     #1d9e75;
-  --warn:     #9a6314;   /* value / money             */
-  --danger:   #a32d2d;
+  --paper:    rgba(26, 24, 19, .80);   /* cards / panels (over marble) */
+  --paper-2:  rgba(44, 39, 29, .72);   /* inset tiles / hover          */
+  --ink:      #efe8d6;   /* primary text (warm cream)  */
+  --ink-soft: #a89e85;   /* muted text                 */
+  --line:     rgba(201, 168, 106, .22);/* faint gold hairline         */
+  --line-2:   rgba(201, 168, 106, .42);/* stronger gold border        */
+  --accent:   #d8b85f;   /* gold                       */
+  --accent-2: #b8902f;   /* deeper gold (hover)        */
+  --accent-soft: rgba(216, 184, 95, .16);
+  --good:     #74c69a;   /* sold green (legible on dark) */
+  --warn:     #e0c074;   /* money value (light gold)   */
+  --danger:   #e0807a;
   --radius:   12px;
-  --shadow:   0 1px 2px rgba(44,44,42,.06), 0 8px 24px rgba(44,44,42,.06);
+  --shadow:   0 1px 2px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.40);
   --mono:     ui-monospace, "SFMono-Regular", "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
 }
 
@@ -23,7 +23,7 @@ body {
   font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
   color: var(--ink);
   min-height: 100vh;
-  background: #f5f3ec url("marble.svg") center / cover fixed no-repeat;
+  background: #161410 url("marble.svg") center / cover fixed no-repeat;
 }
 
 /* ---------- Header ---------- */
@@ -34,7 +34,7 @@ body {
   gap: 16px;
   padding: 16px 24px;
   border-bottom: 1px solid var(--line);
-  background: rgba(255,253,247,.78);
+  background: rgba(18,16,12,.82);
   backdrop-filter: blur(6px);
   position: sticky;
   top: 0;
@@ -49,7 +49,7 @@ body {
 
 .btn {
   background: var(--accent);
-  color: #fff;
+  color: #221a08;
   border: none;
   padding: 9px 16px;
   border-radius: 9px;
@@ -134,7 +134,7 @@ body {
   font-size: .82rem;
   font-weight: 600;
 }
-.chip.active { color: #fff; border-color: var(--accent); background: var(--accent); }
+.chip.active { color: #221a08; border-color: var(--accent); background: var(--accent); }
 
 /* ---------- Table ---------- */
 .table-wrap {
@@ -166,8 +166,8 @@ tbody tr:last-child td { border-bottom: none; }
 .num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
 .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
-.badge.sold  { background: var(--accent-soft); color: var(--accent-2); }
-.badge.stock { background: #eceae1; color: #6b6a62; }
+.badge.sold  { background: rgba(116,198,154,.16); color: var(--good); }
+.badge.stock { background: rgba(239,232,214,.10); color: #c4bca6; }
 
 /* ---------- Overview leaderboard ---------- */
 tr.clickable { cursor: pointer; }
