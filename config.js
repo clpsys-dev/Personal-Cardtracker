@@ -41,7 +41,7 @@ const CONFIG = {
     // Paste the Apps Script web-app URL (ends in /exec) here after deploying
     // it (see README → "Withdrawals box"). Until then, the box shows totals
     // read from the sheet but the "Add withdrawal" form stays disabled.
-    WEBAPP_URL: "PASTE_YOUR_APPS_SCRIPT_WEBAPP_URL",
+    WEBAPP_URL: "https://script.google.com/macros/s/AKfycbyNHh5iV5-LqbjmQlnJzFqrKVN4ZCIDui5luZe9IHRMZkzQ025y2Ksiu-Mn-oPwRiDd/exec",
 
     // The tab the Apps Script logs withdrawals to (it creates this for you).
     SHEET_NAME: "Withdrawals",
