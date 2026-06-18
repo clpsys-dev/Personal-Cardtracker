@@ -86,6 +86,28 @@ body {
 .tab:hover { color: var(--ink); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
+/* ---------- New-sale alert ---------- */
+.sale-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1200px;
+  margin: 14px auto 0;
+  padding: 11px 16px;
+  background: var(--accent-soft);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: .88rem;
+}
+.sale-alert strong { color: var(--accent); font-weight: 600; }
+.sale-alert-x {
+  background: none; border: none; color: var(--ink-soft);
+  cursor: pointer; font-size: 1rem; line-height: 1; padding: 2px 6px;
+}
+.sale-alert-x:hover { color: var(--ink); }
+
 /* ---------- Content ---------- */
 .content { padding: 22px 24px 60px; max-width: 1200px; margin: 0 auto; }
 
@@ -101,6 +123,14 @@ body {
   border-radius: var(--radius);
   padding: 18px 20px;
   box-shadow: var(--shadow);
+}
+.card {
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-2);
+  box-shadow: 0 2px 4px rgba(0,0,0,.4), 0 14px 34px rgba(0,0,0,.45);
 }
 .card .label { font-size: .72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .7px; }
 .card .value { font-family: var(--mono); font-size: 1.9rem; font-weight: 600; margin-top: 8px; color: var(--ink); }

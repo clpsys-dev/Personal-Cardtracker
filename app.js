@@ -16,6 +16,8 @@
     ovSort: { key: "soldValue", dir: -1 }, // overview leaderboard sort
     withdrawals: {}, // { friendName(normalised): totalWithdrawn }
     unlocked: new Set(JSON.parse(sessionStorage.getItem("tcg_unlocked") || "[]")),
+    animate: true,        // run count-up only on tab switch / fresh load
+    salesBaseline: null,  // last-seen { name: {sold, soldValue} } for new-sale alerts
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -200,7 +202,7 @@
       const b = document.createElement("button");
       b.className = "tab" + (idx === state.activeTab ? " active" : "");
       b.textContent = label;
-      b.onclick = () => { state.activeTab = idx; state.search = ""; state.filter = "all"; render(); };
+      b.onclick = () => { state.activeTab = idx; state.search = ""; state.filter = "all"; state.animate = true; render(); };
       els.tabs.appendChild(b);
     };
     // index 0 = grand-total overview; friends follow at 1..n
@@ -240,17 +242,17 @@
       <section class="summary">
         <div class="card accent">
           <div class="label">Total In Inventory</div>
-          <div class="value">${fmtInt(tot.inStock)}</div>
+          <div class="value" data-count="${tot.inStock}" data-fmt="int">${fmtInt(tot.inStock)}</div>
           <div class="sub">unsold cards across ${friends.length} friends</div>
         </div>
         <div class="card good">
           <div class="label">Total Cards Sold</div>
-          <div class="value">${fmtInt(tot.sold)}</div>
+          <div class="value" data-count="${tot.sold}" data-fmt="int">${fmtInt(tot.sold)}</div>
           <div class="sub">of ${fmtInt(tot.total)} total products</div>
         </div>
         <div class="card warn">
           <div class="label">Combined Sale Value</div>
-          <div class="value">${fmtMoney(tot.soldValue)}</div>
+          <div class="value" data-count="${tot.soldValue}" data-fmt="money">${fmtMoney(tot.soldValue)}</div>
           <div class="sub">sum of every "Value Sold"</div>
         </div>
       </section>
@@ -287,10 +289,11 @@
     document.querySelectorAll("tr.clickable").forEach((tr) => {
       tr.onclick = () => {
         state.activeTab = +tr.dataset.friend;
-        state.search = ""; state.filter = "all";
+        state.search = ""; state.filter = "all"; state.animate = true;
         render();
       };
     });
+    maybeCountUp();
   }
 
   function render() {
@@ -344,17 +347,17 @@
       <section class="summary">
         <div class="card accent">
           <div class="label">In Inventory</div>
-          <div class="value">${fmtInt(m.inStock)}</div>
+          <div class="value" data-count="${m.inStock}" data-fmt="int">${fmtInt(m.inStock)}</div>
           <div class="sub">cards not yet sold</div>
         </div>
         <div class="card good">
           <div class="label">Cards Sold</div>
-          <div class="value">${fmtInt(m.sold)}</div>
+          <div class="value" data-count="${m.sold}" data-fmt="int">${fmtInt(m.sold)}</div>
           <div class="sub">of ${fmtInt(m.total)} total products</div>
         </div>
         <div class="card warn">
           <div class="label">Total Sale Value</div>
-          <div class="value">${fmtMoney(m.soldValue)}</div>
+          <div class="value" data-count="${m.soldValue}" data-fmt="money">${fmtMoney(m.soldValue)}</div>
           <div class="sub">sum of all "Value Sold"</div>
         </div>
       </section>
@@ -401,6 +404,31 @@
       };
     });
     wireWithdrawBox(friend);
+    maybeCountUp();
+  }
+
+  // Animate every [data-count] value in the content from 0 to its target,
+  // but only when a fresh view was opened (state.animate), not on every
+  // search/sort/filter re-render.
+  function maybeCountUp() {
+    if (!state.animate) return;
+    state.animate = false;
+    document.querySelectorAll("#content [data-count]").forEach((el) => {
+      const target = parseFloat(el.dataset.count) || 0;
+      const isMoney = el.dataset.fmt === "money";
+      const fmt = isMoney ? fmtMoney : (n) => fmtInt(Math.round(n));
+      if (target === 0) { el.textContent = fmt(0); return; }
+      const start = performance.now();
+      const dur = 650;
+      const tick = (now) => {
+        const p = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+        el.textContent = fmt(target * eased);
+        if (p < 1) requestAnimationFrame(tick);
+        else el.textContent = fmt(target);
+      };
+      requestAnimationFrame(tick);
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -593,6 +621,7 @@
       els.lastUpdated.textContent = CONFIG.USE_SAMPLE
         ? "⚠ Preview mode — sample data"
         : "Updated " + new Date().toLocaleTimeString(CONFIG.LOCALE);
+      handleSaleAlerts();
       render();
     } catch (err) {
       console.error(err);
@@ -602,6 +631,64 @@
     }
   }
 
-  els.refresh.onclick = load;
+  // ---------------------------------------------------------------------------
+  //  New-sale alerts: compare each friend's sold count/value to the last seen
+  //  snapshot (in-memory this session, else localStorage from a prior visit).
+  // ---------------------------------------------------------------------------
+  function snapshotSales(friends) {
+    const s = {};
+    friends.forEach((f) => {
+      s[norm(f.name)] = { name: f.name, sold: f.metrics.sold, soldValue: f.metrics.soldValue };
+    });
+    return s;
+  }
+
+  function handleSaleAlerts() {
+    if (CONFIG.USE_SAMPLE) return;
+    const cur = snapshotSales(state.friends);
+    let prev = state.salesBaseline;
+    if (!prev) { try { prev = JSON.parse(localStorage.getItem("tcg_sales") || "null"); } catch (_) {} }
+
+    const deltas = [];
+    if (prev) {
+      Object.keys(cur).forEach((k) => {
+        const c = cur[k], p = prev[k];
+        if (p && c.sold > p.sold) {
+          deltas.push({ name: c.name, dSold: c.sold - p.sold, dValue: c.soldValue - p.soldValue });
+        }
+      });
+    }
+    state.salesBaseline = cur;
+    try { localStorage.setItem("tcg_sales", JSON.stringify(cur)); } catch (_) {}
+
+    if (deltas.length) {
+      deltas.sort((a, b) => b.dSold - a.dSold);
+      showSaleAlert(deltas);
+    }
+  }
+
+  function showSaleAlert(deltas) {
+    let bar = document.getElementById("sale-alert");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "sale-alert";
+      bar.className = "sale-alert";
+      els.tabs.parentNode.insertBefore(bar, els.tabs);
+    }
+    const parts = deltas.map((d) =>
+      `<strong>${escapeHtml(d.name)}</strong> +${d.dSold} (${fmtMoney(d.dValue)})`).join(" · ");
+    bar.innerHTML =
+      `<span><i style="font-style:normal">🔔</i> New sale${
+        deltas.reduce((n, d) => n + d.dSold, 0) > 1 ? "s" : ""
+      }: ${parts}</span>` +
+      `<button class="sale-alert-x" aria-label="Dismiss">✕</button>`;
+    bar.hidden = false;
+    bar.querySelector(".sale-alert-x").onclick = () => { bar.hidden = true; };
+  }
+
+  els.refresh.onclick = () => { state.animate = true; load(); };
   load();
+
+  // Gentle auto-refresh so new sales surface while the page is open.
+  if (!CONFIG.USE_SAMPLE) setInterval(load, 180000);
 })();
